@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Jack the Ripper - Get RIPPED!</title>
+    </head>
+    <body>
+        <table>
+            <thead>
+            <tr>
+                <th>Ripper</th>
+                <th>Artist</th>
+                <th>Album</th>
+                <th>Label</th>
+                <th>Stack</th>
+                <th>Barcode</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% if error %}
+                <div id="form_error">
+                    {{ error }}
+                </div>
+            {% endif %}
+            {% for ripper in rippers %}
+            <tr>
+                {% if ripper.current_rip is not none %}
+                    <td>{{ ripper.label }}</td>
+                    <td>{{ ripper.current_rip.artist }}</td>
+                    <td>{{ ripper.current_rip.album }}</td>
+                    <td>{{ ripper.current_rip.label }}</td>
+                    <td>{{ ripper.current_rip.stack }}</td>
+                    <td>{{ ripper.current_rip.barcode }}</td>
+                    <td>{{ ripper.current_rip.progress }}</td>
+                {% else %}
+                    <td><form action="/" method="post" id="{{ ripper.id }}"></form><input form="{{ ripper.id }}" type="hidden" name="id" value="{{ ripper.id }}" />{{ ripper.label }}</td>
+                    <td><input form="{{ ripper.id }}" type="text" name="artist"></input></td>
+                    <td><input form="{{ ripper.id }}" type="text" name="album"></input></td>
+                    <td><input form="{{ ripper.id }}" type="text" name="label"></input></td>
+                    <td><input form="{{ ripper.id }}" type="text" name="stack"></input></td>
+                    <td><input form="{{ ripper.id }}" type="text" name="barcode"></input></td>
+                    <td><input form="{{ ripper.id }}" type="submit" value="Start"></input></td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </body>
+</html>
