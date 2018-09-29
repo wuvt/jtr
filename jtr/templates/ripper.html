@@ -13,6 +13,7 @@
                 <th>Album</th>
                 <th>Label</th>
                 <th>Stack</th>
+                <th>Disc (usually 1)</th>
                 <th>Barcode</th>
                 <th>Status</th>
             </tr>
@@ -31,6 +32,7 @@
                     <td>{{ ripper.current_rip.album }}</td>
                     <td>{{ ripper.current_rip.label }}</td>
                     <td>{{ ripper.current_rip.stack }}</td>
+                    <td>{{ ripper.current_rip.disc }}</td>
                     <td>{{ ripper.current_rip.barcode }}</td>
                     <td>{{ ripper.current_rip.progress }}</td>
                 {% else %}
@@ -39,6 +41,7 @@
                     <td><input form="{{ ripper.id }}" type="text" name="album"></input></td>
                     <td><input form="{{ ripper.id }}" type="text" name="label"></input></td>
                     <td><input form="{{ ripper.id }}" type="text" name="stack"></input></td>
+                    <td><input form="{{ ripper.id }}" type="text" name="disc"></input></td>
                     <td><input form="{{ ripper.id }}" type="text" name="barcode"></input></td>
                     <td><input form="{{ ripper.id }}" type="submit" value="Start"></input></td>
                 {% endif %}

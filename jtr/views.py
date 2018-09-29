@@ -19,12 +19,14 @@ def display():
                 request.form.get('album', None) is None or
                 request.form.get('label', None) is None or
                 request.form.get('stack', None) is None or
+                request.form.get('disc', None) is None or
                 request.form.get('barcode', None) is None or
                 request.form['id'].strip() == "" or
                 request.form['artist'].strip() == "" or
                 request.form['album'].strip() == "" or
                 request.form['label'].strip() == "" or
                 request.form['stack'].strip() == "" or
+                request.form['disc'].strip() == "" or
                 request.form['barcode'].strip() == "" ):
             rippers = Ripper.query.order_by(Ripper.id).all()
             return main_page(error="You must fill in all fields")
@@ -34,6 +36,7 @@ def display():
         album = request.form['album'].strip()
         label = request.form['label'].strip()
         stack = request.form['stack'].strip()
+        disc = request.form['disc'].strip()
         barcode = request.form['barcode'].strip()
 
         try:
@@ -46,7 +49,7 @@ def display():
         except ValueError:
             return main_page(error="Barcode is not valid! Please enter it by scanning.")
 
-        rip = CDRip(artist, album, label, stack, barcode)
+        rip = CDRip(artist, album, label, stack, disc, barcode)
         db.session.add(rip)
         try:
             db.session.flush()

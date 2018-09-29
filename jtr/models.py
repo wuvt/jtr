@@ -13,11 +13,12 @@ class CDRipState(Enum):
 class CDRip(db.Model):
     __tablename__ = 'cd_rip'
 
-    def __init__(self, artist, album, label, stack, barcode):
+    def __init__(self, artist, album, label, stack, disc, barcode):
         self.artist = artist
         self.album = album
         self.label = label
         self.stack = stack
+        self.disc = disc
         self.barcode = barcode
         self.state = CDRipState.IN_PROGRESS
         self.progress = 0
@@ -30,6 +31,7 @@ class CDRip(db.Model):
     album = db.Column(db.Unicode(255).with_variant(db.Unicode, 'postgresql'))
     label = db.Column(db.Unicode(255).with_variant(db.Unicode, 'postgresql'))
     stack = db.Column(db.Unicode(255).with_variant(db.Unicode, 'postgresql'))
+    disc = db.Column(db.Unicode(255).with_variant(db.Unicode, 'postgresql'))
     barcode = db.Column(db.Integer, unique=True)
     state = db.Column(db.Enum(CDRipState))
     progress = db.Column(db.Integer)
