@@ -32,7 +32,7 @@ class CDRip(db.Model):
     label = db.Column(db.Unicode(255).with_variant(db.Unicode, 'postgresql'))
     stack = db.Column(db.Unicode(255).with_variant(db.Unicode, 'postgresql'))
     disc = db.Column(db.Unicode(255).with_variant(db.Unicode, 'postgresql'))
-    barcode = db.Column(db.Integer, unique=True)
+    barcode = db.Column(db.Integer)
     state = db.Column(db.Enum(CDRipState))
     progress = db.Column(db.Integer)
 
