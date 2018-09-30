@@ -1,6 +1,7 @@
 #!/bin/bash
 ENDPOINT="http://localhost:5000/api"
-ME=1
+ME=${ME:-1}
+POLLTIME=${POLLTIME:-10}
 WORKDIR="/tmp/rip-client"
 STOREPATH="/home/eric/test/"
 UUID=""
@@ -41,34 +42,28 @@ getStatus() {
 
 whipperStatus() {
 	CHECKUUID=$1
-	# I've never really understood why this is the necessary idiom to read
-	# stuff into an array, but whatever...
-	read -a Status < <(tail -n 2 ${CHECKUUID}-ripinfo |sed 1q \
-		| sed -E -r -e 's/^(Verifying|Reading) track ([0-9]+) of ([0-9]+) .* \.\.\. +([0-9]+) \%/\1 \2 \3 \4/'\
-		-e '/((D|d)oing|(E|e)ncoding)/d'\
-		-e '/^(CRC|Peak|Rip)/d'\
-		-e 's/^(Getting) .* track \(([0-9]+) of ([0-9]+)\)/\1 \2 \3/'\
-		-e 's/^track +[0-9]\: rip accurate/Cleaning/'\
-		-e '/^(Using|Checking|CDDB|MusicBrainz|Disc|Matching|Artist|Title|Duration|URL|Release|Type|Barcode|Cat|output|Ripping)/d'\
-		-e '/^Reading TOC/d'\
-		-e '/^(Verifying|Reading|Ripping) track ([0-9]+) of ([0-9]+)\:/d')
+	infofile=${CHECKUUID}-ripinfo
+	last_rip=$(awk '/^Ripping track ([0-9]+) of ([0-9]+):/{ print $3,$5}' <$infofile | tr -d : | tail -n1)
+	current_track=$(cut -d' ' -f1 <<<$last_rip)
+	total_tracks=$(cut -d' ' -f2 <<<$last_rip)
+	stage_progress=$(awk '/^(Verifying|Reading) track '"$current_track"' of ([0-9]+) .* \.\.\. +([0-9]+) \%/' < $infofile\
+		| tail -n2 | head -n1)
+	
 	# sometimes we'll get an empty line. I guess we can ignore that
-	# behaviour and just return data that doesn't pass muster
-	if [[ -z ${Status[0]} ]]
+	# behaviour and just return data that doesn't pass muster at all
+	if [[ -z $stage_progress ]]
 	then
 		return 101
 	fi
 	# we assume Reading is <=50% for the track, and Verifying is >=50%, and
 	# that that is roughly linear.
-	# We don't want to return 99
-	case ${Status[0]} in
+	# We don't want to return 99 or 100
+	case $(awk '{ print $1 }' <<<$stage_progress) in
 		"Verifying")
-			TRA=${Status[1]}
-			TOT=${Status[2]}
-			PCT=$(( ${Status[3]}/2+50 ))
-			if [[ $TRA -ge 0 ]] && [[ $TOT -ge 0 ]] && [[ $PCT -ge 0 ]]
+			percent=$(( $( rev <<<$stage_progress | awk '{ print $2 }' | rev )/2+50 ))
+			if [[ $current_track -ge 0 ]] && [[ $total_tracks -ge 0 ]] && [[ $percent -ge 0 ]]
 			then
-				RES=$(dc <<<"5k $TRA 1- $TOT / 1 $TOT / $PCT 100/ *+ 100* 0k 1/ p")
+				RES=$(dc <<<"5k $current_track 1- $total_tracks / 1 $total_tracks / $percent 100/ *+ 100* 0k 1/ p")
 				if [[ $RES -ge 98 ]]
 				then
 					return 98
@@ -79,12 +74,10 @@ whipperStatus() {
 			fi
 			;;
 		"Reading")
-			TRA=${Status[1]}
-			TOT=${Status[2]}
-			PCT=$(( ${Status[3]}/2 ))
-			if [[ $TRA -ge 0 ]] && [[ $TOT -ge 0 ]] && [[ $PCT -ge 0 ]]
+			percent=$(( $( rev <<<$stage_progress | awk '{ print $2 }' | rev )/2 ))
+			if [[ $current_track -ge 0 ]] && [[ $total_tracks -ge 0 ]] && [[ $percent -ge 0 ]]
 			then
-				RES=$(dc <<<"5k $TRA 1- $TOT / 1 $TOT / $PCT 100/ *+ 100* 0k 1/ p")
+				RES=$(dc <<<"5k $current_track 1- $total_tracks / 1 $total_tracks / $percent 100/ *+ 100* 0k 1/ p")
 				if [[ $RES -ge 98 ]]
 				then
 					return 98
@@ -93,12 +86,6 @@ whipperStatus() {
 				fi
 			else return 101
 			fi
-			;;
-		"Getting")
-			return 99
-			;;
-		"Cleaning")
-			return 100
 			;;
 		*)
 			return -1
@@ -128,58 +115,42 @@ checkDeps
 
 while true
 do
-	if UUID=$(getStatus $UUID)
-	then
-		eject -t
-		setStatus "progress" $UUID 0
-		IDLE=1
-		# note: it's really important to send ripper's stdout through
-		# tr to be able to parse
-		whipper cd rip -U --cdr -O $STOREPATH/$UUID \
-			2>${UUID}-riperror | tr '\r' '\n' > ${UUID}-ripinfo &
-		sleep 50 #do nothing for a bit so that it doesn't have harmless errors
-	else
-		if [[ -n $(jobs) ]]
+	UUID=""
+	while [[ -z $UUID ]]
+	do
+		UUID=$(getStatus)
+		sleep $POLLTIME
+	done
+	eject -t # TODO make sure CD drive is actually in
+	setStatus "progress" $UUID 0
+	IDLE=1
+	# note: it's really important to send ripper's stdout through
+	# tr to be able to parse
+	whipper cd rip -U --cdr -O $STOREPATH/$UUID \
+		2>${UUID}-riperror | tr '\r' '\n' > ${UUID}-ripinfo &
+	sleep 50 #do nothing for a bit so that it doesn't have harmless errors
+	while [[ -n $(jobs) ]]
+	do
+		whipperStatus $UUID
+		COMPLETION=$?
+		if [[ $COMPLETION -lt 0 ]]
 		then
-			whipperStatus $UUID
-			COMPLETION=$?
-			if [[ $COMPLETION -lt 0 ]]
-			then
-				setStatus "error" $UUID
-				# We probably have an error, but we'll keep
-				# "running" until whipper dies.
-			elif [[ $COMPLETION -gt 100 ]]
-			then # this is probably a harmless error
-				echo "minor error?"
-			elif [[ $COMPLETION -lt 100 ]]
-			then
-				setStatus "progress" $UUID $COMPLETION
-			elif [[ $COMPLETION -eq 100 ]]
-			then
-				setStatus "done" $UUID
-				IDLE=0
-			fi
-		else
-			# here, we handle the case where whipper dies or
-			# finishes without us setting done.
-			if ! $IDLE
-			then
-				whipperStatus $UUID
-				COMPLETION=$?
-				if [[ $COMPLETION -eq 100 ]]
-				then
-					setStatus "done" $UUID
-					IDLE=0
-				else
-					# There's a good chance whipper errored
-					# out. We'll hard-fail here
-					setStatus "error" $UUID
-					IDLE=0
-					eject
-				fi
-			fi
+			echo "$(date -Is) Serious Error?" >&2
+			#setStatus "error" $UUID
+			# We probably have an error, but we'll keep
+			# "running" until whipper dies.
+		elif [[ $COMPLETION -gt 100 ]]
+		then # this is probably a harmless error
+			echo "$(date -Is) minor error?" >&2
+		elif [[ $COMPLETION -lt 100 ]]
+		then
+			setStatus "progress" $UUID $COMPLETION
 		fi
-	fi
-	sleep 5
+		sleep $POLLTIME
+	done
+	# whipper is no longer running
+	# TODO figure out actual errors.
+	setStatus "done" $UUID
+	eject # just in case whipper doesn't
 done
 
