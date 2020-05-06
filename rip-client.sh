@@ -1,11 +1,13 @@
 #!/bin/bash
 ENDPOINT="http://localhost:5000/api"
 ME=${ME:-1}
+DRIVE=${DRIVE:-/dev/sr0}
 POLLTIME=${POLLTIME:-10}
 WORKDIR="/tmp/rip-client"
 STOREPATH="/home/eric/test/"
 UUID=""
 IDLE=0 #whether we should be idle
+LOCAL=${LOCAL:-0}
 
 setStatus() {
 # status, uuid, percent progress
@@ -93,10 +95,30 @@ whipperStatus() {
 
 }
 
+promptInfo() {
+	read -p 'WL ID: ' PROMPT_UUID
+	read -p 'Stack: ' PROMPT_STACK
+	read -p 'Artist Name: ' PROMPT_ARTIST
+	read -p 'Album Name: ' PROMPT_ALBUM
+}
+
+storeInfo() {
+	INFOFILE=$STOREPATH/${UUID}/${UUID}-humanmeta.yml
+	cat >$INFOFILE <<EOF
+---
+id: $1
+  stack: $2
+  album: $3
+  artist: $4
+EOF
+
+}
+
 checkDeps() {
 	if ! which curl || ! which whipper || ! which eject || ! which dc
 	then
 		echo "[ERROR] Missing Dependencies" >&2
+		echo "we require whipper, curl, ejcect, and dc (bc)" >&2
 		exit 1
 	fi
 }
@@ -118,16 +140,28 @@ do
 	UUID=""
 	while [[ -z $UUID ]]
 	do
-		UUID=$(getStatus)
-		sleep $POLLTIME
+		if [[ $LOCAL -ne 0 ]]
+		then
+			UUID=$(getStatus)
+			sleep $POLLTIME
+		else
+			promptInfo
+			UUID=$PROMPT_UUID
+			storeInfo $UUID ${PROMPT_STACK} ${PROMPT_ARTIST} ${PROMPT_ALBUM}
+		fi
 	done
 	eject -t # TODO make sure CD drive is actually in
-	setStatus "progress" $UUID 0
+	if [[ $LOCAL -ne 0 ]]
+	then
+		setStatus "progress" $UUID 0
+	fi
+	mkdir $STOREPATH/$UUID
 	IDLE=1
 	# note: it's really important to send ripper's stdout through
 	# tr to be able to parse
-	whipper cd rip -U --cdr -O $STOREPATH/$UUID \
-		2>${UUID}-riperror | tr '\r' '\n' > ${UUID}-ripinfo &
+	whipper cd -d $DRIVE rip -U --cdr -O $STOREPATH/$UUID \
+		2>$STOREPATH/${UUID}/${UUID}-riperror |\
+		tr '\r' '\n' > $STOREPATH/${UUID}/${UUID}-ripinfo &
 	sleep 50 #do nothing for a bit so that it doesn't have harmless errors
 	while [[ -n $(jobs) ]]
 	do
@@ -144,13 +178,24 @@ do
 			echo "$(date -Is) minor error?" >&2
 		elif [[ $COMPLETION -lt 100 ]]
 		then
-			setStatus "progress" $UUID $COMPLETION
+			if [[ $LOCAL -ne 0 ]]
+			then
+				setStatus "progress" $UUID $COMPLETION
+			else
+				echo "progress" $UUID $COMPLETION
+			fi
 		fi
+		jobs
 		sleep $POLLTIME
 	done
 	# whipper is no longer running
 	# TODO figure out actual errors.
-	setStatus "done" $UUID
+	if [[ $LOCAL -ne 0 ]]
+	then
+		setStatus "done" $UUID
+	else
+		setStatus "done" $UUID
+	fi
 	eject # just in case whipper doesn't
 done
 
