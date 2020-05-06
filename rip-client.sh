@@ -44,7 +44,7 @@ getStatus() {
 
 whipperStatus() {
 	CHECKUUID=$1
-	infofile=${CHECKUUID}-ripinfo
+	infofile=$STOREPATH/${CHECKUUID}/${CHECKUUID}-ripinfo
 	last_rip=$(awk '/^Ripping track ([0-9]+) of ([0-9]+):/{ print $3,$5}' <$infofile | tr -d : | tail -n1)
 	current_track=$(cut -d' ' -f1 <<<$last_rip)
 	total_tracks=$(cut -d' ' -f2 <<<$last_rip)
