@@ -147,15 +147,16 @@ do
 		else
 			promptInfo
 			UUID=$PROMPT_UUID
-			storeInfo $UUID ${PROMPT_STACK} ${PROMPT_ARTIST} ${PROMPT_ALBUM}
 		fi
 	done
 	eject -t # TODO make sure CD drive is actually in
+	mkdir $STOREPATH/$UUID
 	if [[ $LOCAL -ne 0 ]]
 	then
 		setStatus "progress" $UUID 0
+	else
+		storeInfo $UUID ${PROMPT_STACK} ${PROMPT_ARTIST} ${PROMPT_ALBUM}
 	fi
-	mkdir $STOREPATH/$UUID
 	IDLE=1
 	# note: it's really important to send ripper's stdout through
 	# tr to be able to parse
