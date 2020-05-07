@@ -96,6 +96,18 @@ whipperStatus() {
 
 }
 
+checkError() {
+	CHECKUUID=$1
+	infofile=$STOREPATH/${CHECKUUID}/${CHECKUUID}-ripinfo
+	errorfile=$STOREPATH/${CHECKUUID}/${CHECKUUID}-riperror
+	if [[ -n $( tail -n30 $infofile |grep 'rip NOT accurate' ) ]]
+	then
+		return 1
+	else
+		return 0
+	fi
+}
+
 promptInfo() {
 	read -p 'WL ID: ' PROMPT_UUID
 	read -p 'Stack: ' PROMPT_STACK
@@ -107,10 +119,11 @@ storeInfo() {
 	INFOFILE=$STOREPATH/${UUID}/${UUID}-humanmeta.yml
 	cat >$INFOFILE <<EOF
 ---
-id: $1
+$1:
+  id: $1
   stack: $2
-  album: $3
-  artist: $4
+  artist: $3
+  album: $4
 EOF
 
 }
@@ -156,7 +169,7 @@ do
 	then
 		setStatus "progress" $UUID 0
 	else
-		storeInfo $UUID ${PROMPT_STACK} ${PROMPT_ARTIST} ${PROMPT_ALBUM}
+		storeInfo $UUID ${PROMPT_STACK} "${PROMPT_ARTIST}" "${PROMPT_ALBUM}"
 	fi
 	IDLE=1
 	# note: it's really important to send ripper's stdout through
@@ -194,9 +207,19 @@ do
 	# TODO figure out actual errors.
 	if [[ $LOCAL -ne 0 ]]
 	then
-		setStatus "done" $UUID
+		if ( checkError $UUID )
+		then
+			setStatus "error" $UUID
+		else
+			setStatus "done" $UUID
+		fi
 	else
-		echo "done" $UUID
+		if ( checkError $UUID )
+		then
+			echo "error" $UUID
+		else
+			echo "done" $UUID
+		fi
 	fi
 	eject $DRIVE # just in case whipper doesn't
 done
