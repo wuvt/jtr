@@ -45,10 +45,11 @@ getStatus() {
 whipperStatus() {
 	CHECKUUID=$1
 	infofile=$STOREPATH/${CHECKUUID}/${CHECKUUID}-ripinfo
-	last_rip=$(awk '/^Ripping track ([0-9]+) of ([0-9]+):/{ print $3,$5}' <$infofile | tr -d : | tail -n1)
+	errorfile=$STOREPATH/${CHECKUUID}/${CHECKUUID}-riperror
+	last_rip=$(awk '/ripping track ([0-9]+) of ([0-9]+):/{ print $3,$5}' <$errorfile | tr -d : | tail -n1)
 	current_track=$(cut -d' ' -f1 <<<$last_rip)
 	total_tracks=$(cut -d' ' -f2 <<<$last_rip)
-	stage_progress=$(awk '/^(Verifying|Reading) track '"$current_track"' of ([0-9]+) .* \.\.\. +([0-9]+) \%/' < $infofile\
+	stage_progress=$(awk '/^(Verifying|Reading) track '"$current_track"' of ([0-9]+) .* \.\.\. +([0-9]+) %/' < $infofile\
 		| tail -n2 | head -n1)
 	
 	# sometimes we'll get an empty line. I guess we can ignore that
@@ -149,7 +150,7 @@ do
 			UUID=$PROMPT_UUID
 		fi
 	done
-	eject -t # TODO make sure CD drive is actually in
+	eject -t $DRIVE # TODO make sure CD drive is actually in
 	mkdir $STOREPATH/$UUID
 	if [[ $LOCAL -ne 0 ]]
 	then
@@ -195,8 +196,8 @@ do
 	then
 		setStatus "done" $UUID
 	else
-		setStatus "done" $UUID
+		echo "done" $UUID
 	fi
-	eject # just in case whipper doesn't
+	eject $DRIVE # just in case whipper doesn't
 done
 
