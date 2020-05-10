@@ -3,20 +3,21 @@ ENDPOINT="http://localhost:5000/api"
 ME=${ME:-1}
 DRIVE=${DRIVE:-/dev/sr0}
 POLLTIME=${POLLTIME:-10}
-WORKDIR="/tmp/rip-client"
-STOREPATH="/home/eric/test/"
+WORKDIR=$HOME
+STOREPATH="$HOME/rips/"
 UUID=""
 IDLE=0 #whether we should be idle
 LOCAL=${LOCAL:-0}
 
 setStatus() {
 # status, uuid, percent progress
-	REPORTUUID=$2 # we don't actually use this, but oh well, I'm not fixing the code elsewhere.
+	REPORTUUID=$2 # FIXME we don't actually use this, but oh well, I'm not fixing the code elsewhere.
 	STATUS=$1
 	if [[ -n $3 ]]; then
 		PROGRESS=$3
 	else PROGRESS=0
 	fi
+	#TODO add more error conditions
 	case $STATUS in
 		"done")
 			curl -XPUT ${ENDPOINT}/status/$ME -d "state=DONE"
@@ -103,6 +104,12 @@ checkError() {
 	if [[ -n $( tail -n30 $infofile |grep 'rip NOT accurate' ) ]]
 	then
 		return 1
+	elif [[ -n $( grep "equal to 'MAX_TRIES'" $infofile ) ]]
+	then
+		return 1
+	elif [[ -n $( grep "CRITICAL" $errorfile ) ]]
+	then
+		return 1
 	else
 		return 0
 	fi
@@ -116,7 +123,8 @@ promptInfo() {
 }
 
 storeInfo() {
-	INFOFILE=$STOREPATH/${UUID}/${UUID}-humanmeta.yml
+	STOUUID=$1
+	INFOFILE=$STOREPATH/${STOUUID}/${STOUUID}-humanmeta.yml
 	cat >$INFOFILE <<EOF
 ---
 $1:
@@ -126,6 +134,16 @@ $1:
   album: $4
 EOF
 
+}
+
+appendInfo() {
+	APUUID=$1
+	shift
+	INFOFILE=$STOREPATH/${APUUID}/${APUUID}-humanmeta.yml
+	if [[ -e $INFOFILE ]]
+	then
+		echo "$@" >> $INFOFILE
+	fi
 }
 
 checkDeps() {
@@ -209,16 +227,17 @@ do
 	then
 		if ( checkError $UUID )
 		then
-			setStatus "error" $UUID
-		else
 			setStatus "done" $UUID
+		else
+			setStatus "error" $UUID
 		fi
 	else
 		if ( checkError $UUID )
 		then
-			echo "error" $UUID
-		else
 			echo "done" $UUID
+		else
+			appendInfo $UUID "  error: true"
+			echo "error" $UUID
 		fi
 	fi
 	eject $DRIVE # just in case whipper doesn't
