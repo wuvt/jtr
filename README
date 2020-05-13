@@ -1,0 +1,13 @@
+jtr, or "jack the ripper", wuvt's theoretical CD ripping cluster management tool
+
+rip-client.sh can be run standalone or as part of the cluster; it relies on
+common utils (which, curl, dc, eject) and a recent version of
+[whipper](https://github.com/whipper-team/whipper). Read the code; there
+are a couple environmental variables you'll want to pass in. It does some nasty 
+parsing of the STDOUT/STDERR of whipper, which is not a stable interface. Current
+code relies on 0.9.0. the older 0.8.x series sends more info to STDOUT and less
+to STDERR, which breaks the percentage completion estimation.
+
+The web server side will eventually store info to a DB with relevant metadata to
+be able to find CDs again. we're assigning a numeric barcode to every CD to help
+with this (and maybe make some things more automatic in the future).
